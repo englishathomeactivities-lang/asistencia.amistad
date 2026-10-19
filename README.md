@@ -27,7 +27,7 @@ La aplicación está restringida a `englishathomeactivities@gmail.com` tanto en 
    ```
 
 4. En GitHub, usa o crea la cuenta `englishathomeactivities@gmail.com`, crea un repositorio privado e importa allí los archivos de esta carpeta.
-5. En Vercel, inicia sesión o crea la cuenta con ese correo, importa el repositorio de GitHub y establece `asistencia` como **Root Directory**. Agrega estas variables de entorno para Preview y Production:
+5. En Vercel, inicia sesión o crea la cuenta con ese correo, importa el repositorio de GitHub y establece `.` (la raíz del repositorio) como **Root Directory**. Agrega estas variables de entorno para Preview y Production:
    - `SUPABASE_URL`: URL del proyecto Supabase.
    - `SUPABASE_ANON_KEY`: clave pública `anon`/publishable del proyecto. Solo se entrega al navegador; nunca uses la clave `service_role`.
    - `QR_SECRET`: secreto aleatorio largo para firmar los carnés. Puedes generarlo con `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.

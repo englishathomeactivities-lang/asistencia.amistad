@@ -209,11 +209,13 @@ function teacherModal(){
  +"</div></div>"}
 function loginRender(message=""){
  $("#session").innerHTML="";
- $("#app").innerHTML='<div class="login"><div class="card"><h2 style="font-size:18px">Ingreso docente</h2><p class="mut">Usa la cuenta institucional '+TEACHER_EMAIL+'.</p>'+(message?'<div class="err" role="alert">'+esc(message)+'</div>':"")+'<form id="login-form"><label class="mut" for="login-email">Correo</label><input id="login-email" type="email" autocomplete="username" required><label class="mut" for="login-password">Contraseña</label><input id="login-password" type="password" autocomplete="current-password" required><button class="act" type="submit" style="width:100%">Iniciar sesión</button></form></div></div>';
+ const unavailable=!db||!db.auth;
+ const disabled=unavailable?" disabled":"";
+ $("#app").innerHTML='<div class="login"><div class="card"><h2 style="font-size:18px">Ingreso docente</h2><p class="mut">Usa la cuenta institucional '+TEACHER_EMAIL+'.</p>'+(message?'<div class="err" role="alert">'+esc(message)+'</div>':"")+'<form id="login-form"><label class="mut" for="login-email">Correo</label><input id="login-email" type="email" autocomplete="username" required'+disabled+'><label class="mut" for="login-password">Contraseña</label><input id="login-password" type="password" autocomplete="current-password" required'+disabled+'><button class="act" type="submit" style="width:100%"'+disabled+'>Iniciar sesión</button></form></div></div>';
 }
 async function returnToLogin(error){
  let message=error&&error.message?error.message:"No se pudo completar el acceso.";
- if(db){
+ if(db&&db.auth){
   try{const {error:signOutError}=await db.auth.signOut();if(signOutError)message+=" No se pudo cerrar la sesión: "+signOutError.message}
   catch(signOutError){message+=" No se pudo cerrar la sesión: "+(signOutError.message||"error desconocido")}
  }
@@ -221,11 +223,16 @@ async function returnToLogin(error){
 }
 async function startApp(){
  try{
-  const response=await fetch("/api/config");
-  const config=await response.json();
-  if(!response.ok)throw new Error(config.error||"No se pudo cargar la configuración.");
-  if(!window.supabase)throw new Error("No se pudo cargar el cliente de Supabase.");
+  const response=await fetch("/api/config",{cache:"no-store"});
+  let config;
+  try{config=await response.json()}
+  catch{throw new Error(response.ok?"La configuración del servidor no devolvió JSON válido.":"No se pudo cargar la configuración del servidor (HTTP "+response.status+"). En Vercel, configura la raíz del proyecto como `.` y vuelve a desplegar.")}
+  if(!response.ok)throw new Error(config.error||"No se pudo cargar la configuración del servidor (HTTP "+response.status+").");
+  if(!config||typeof config!=="object")throw new Error("La configuración del servidor tiene un formato no válido.");
+  if(typeof config.supabaseUrl!=="string"||typeof config.supabaseAnonKey!=="string"||!config.supabaseUrl||!config.supabaseAnonKey)throw new Error("La configuración de Supabase está incompleta. Revisa SUPABASE_URL y SUPABASE_ANON_KEY en Vercel.");
+  if(!window.supabase||typeof window.supabase.createClient!=="function")throw new Error("No se pudo cargar el cliente de Supabase. Comprueba tu conexión e inténtalo de nuevo.");
   db=window.supabase.createClient(config.supabaseUrl,config.supabaseAnonKey);
+  if(!db||!db.auth)throw new Error("No se pudo inicializar la autenticación de Supabase.");
   const {data,error}=await db.auth.getSession();
   if(error)throw error;
   db.auth.onAuthStateChange((event)=>{
@@ -265,11 +272,12 @@ document.addEventListener("click",e=>{
  else if(a==="seed"){seed()}
  else if(a==="promote"){promote()}
  else if(a==="del"){if(confirm("¿Eliminar a "+b.dataset.n+" y toda su asistencia?"))delStudent(v)}
- else if(a==="logout"){db.auth.signOut().then(({error})=>{if(error)loginRender(error.message)}).catch(error=>loginRender(error.message))}
+ else if(a==="logout"){if(db&&db.auth)db.auth.signOut().then(({error})=>{if(error)loginRender(error.message)}).catch(error=>loginRender(error.message))}
 });
 document.addEventListener("submit",async e=>{
  if(e.target.id!=="login-form")return;
  e.preventDefault();
+ if(!db||!db.auth){loginRender("La autenticación aún no está disponible. Revisa la configuración del proyecto en Vercel y recarga la página.");return}
  const button=e.target.querySelector('button[type="submit"]');
  button.disabled=true;button.textContent="Ingresando…";
  try{
