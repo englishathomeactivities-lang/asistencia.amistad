@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Asistencia · I.E. La Amistad</title>
+<style>
+:root{--bg:#ffe3c2;--acc:#ff8200;--card:#fff9f1;--ink:#2a2a24;--mut:#7a7360;--line:#e6dcc6;--ok:#14a44d;--bad:#e5484d}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--card:#2a2824;--ink:#f1ece0;--mut:#b5ad98;--line:#3d3a33}:root:not([data-theme="light"]) body{background:color-mix(in srgb,var(--bg) 16%,#1c1b18)!important}}
+:root[data-theme="dark"]{--card:#2a2824;--ink:#f1ece0;--mut:#b5ad98;--line:#3d3a33}:root[data-theme="dark"] body{background:color-mix(in srgb,var(--bg) 16%,#1c1b18)!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:var(--bg);transition:background .4s}
+header{text-align:center;padding:22px 12px 14px;border-bottom:4px solid var(--acc);transition:border-color .4s}
+.tag{font-size:12px;color:var(--mut);letter-spacing:.04em}h1{margin:4px 0 0;font-size:32px}
+.wrap{max-width:1250px;margin:18px auto;padding:0 14px;display:grid;grid-template-columns:230px 1fr 300px;gap:14px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;transition:transform .2s}.card:hover{transform:translateY(-2px)}
+h2{margin:0 0 10px;font-size:15px}.btn{display:block;width:100%;text-align:left;border:2px solid transparent;border-radius:10px;padding:10px 12px;margin-bottom:7px;font-size:14px;font-weight:600;cursor:pointer;color:#2a2a24;transition:transform .15s}.btn:hover{transform:translateX(4px)}.btn.on{border-color:var(--c)}
+.chip{display:inline-block;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:20px;padding:6px 12px;margin:0 4px 6px 0;font-size:13px;cursor:pointer}.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.big{font-size:54px;font-weight:700;color:var(--acc);line-height:1}.mut{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-size:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 6px;border-bottom:1px solid var(--line)}
+.row label{display:flex;align-items:center;gap:12px;flex:1;cursor:pointer;font-size:15px}.row input{width:26px;height:26px;accent-color:var(--ok)}
+.bar{height:12px;background:var(--line);border-radius:8px;overflow:hidden;flex:1;min-width:80px}.bar i{display:block;height:100%;background:var(--bad)}
+input[type=text],input[type=email],input[type=password],input[type=date],select{padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:14px;width:100%}
+.act{border:0;background:var(--acc);color:#fff;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;font-size:14px}.act.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}.act.del{background:var(--bad)}
+.err{background:#ffd6dc;color:#8a1f26;padding:9px 12px;border-radius:9px;font-size:13px;margin:8px 0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow:auto;z-index:9}.modal .card{max-width:760px;width:100%}
+.login{max-width:360px;margin:50px auto;padding:0 14px}.login input{margin-bottom:10px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.who{display:flex;align-items:center;gap:10px;flex:1;min-width:220px;font-size:15px}.av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;color:#2a2a24;flex-shrink:0}
+.pen{border:1px solid var(--line);background:transparent;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:14px}.sts{display:flex;gap:5px;flex-wrap:wrap}
+.sb{border:2px solid var(--c);background:transparent;color:var(--ink);border-radius:9px;padding:8px 9px;font-size:12px;font-weight:700;cursor:pointer;min-height:40px}.sb.on{background:var(--c);color:#fff}
+.chipc{border:2px solid var(--c);background:transparent;color:var(--ink);border-radius:20px;padding:6px 12px;margin:0 4px 6px 0;font-size:13px;font-weight:600;cursor:pointer}.chipc.on{background:var(--c);color:#fff}
+.sum{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}.sum span{font-size:12px;border-radius:14px;padding:4px 10px;background:var(--line)}
+@media print{header,.wrap,.noprint,#scan{display:none!important}.modal{position:static;background:none;padding:0}.card{border:0}body{background:#fff!important;color:#000}}
+</style></head><body>
+<header><div class="tag" id="tag"></div><h1>I.E. La Amistad</h1><div class="mut">Control de asistencia</div><div id="session"></div></header>
+<div id="app"></div>
+<div id="scan" class="modal" style="display:none"><div class="card" style="max-width:480px;text-align:center"><h2>📷 Escanear QR</h2><p class="mut" id="scs"></p><video id="scv" muted playsinline style="width:100%;border-radius:12px;background:#000;max-height:320px"></video><canvas id="scc" style="display:none"></canvas><div id="scl" style="text-align:left;margin:10px 0"></div><button class="act alt" data-a="scanx">Cerrar</button></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUBS = {all:{n:"Resumen general",i:"🏆",c:"#ff8200",p:"#ffe3c2"},"Informática":{n:"Informática",i:"💻",c:"#1473e6",p:"#d3e6ff"},"Ética":{n:"Ética",i:"🧭",c:"#8b5cf6",p:"#e4d9ff"},"Inglés":{n:"Inglés",i:"🔤",c:"#f59e0b",p:"#fff0b8"},"Proyecto Lector":{n:"Proyecto Lector",i:"📚",c:"#14a44d",p:"#d1f1dc"}};
+const GRADES=["6°","7°","8°","9°","10°","11°"], YEARS=[2025,2026,2027];
+const INI={"6°":["Churque Bello Bihanet Raul","Leon Chacon Alexis","Mendez Rodriguez Juan Sebastian","Piza Cardenas Sharit Dayana"],"7°":["Beltran Ardila Kattin Fleyn","Beltran Cardenas Diego Abatuel","Bocanegra Devia Gabriela","Castillo Saenz Joel","Espitia Parra Daniel Stiven","Fajardo Diaz Jonathan Santiago","Raba Aguilera Deybar Arley"],"8°":["Castellanos Chacon Johan Seba","Chacon Carrero Maicol","Fajardo Torres Yuber Andrei","Garcia Garcia Anthony Matias","Pardo Beltran Yeferson","Suarez Castillo Alisson Yuliana","Michel","Suarez Hurtado Jhon Alex"],"9°":["Amador Barreño Dairon Stiven","Cardenas Barbosa Jair Sneider","Castillo Gutierrez Briyith","Castillo Pulido Yurley Daneidy","Guzman Pantoja Maicol Danian","Mejia Saenz Guidier Stiven"],"10°":["Carrero Beltran Maria Tatiana","Carrero Parra Zara Yulieth","Estevez Leon Juan David","Garavito Garavito Jhoan Sebastian","Jaimes Leon Angel Fernando","Pinzon Fajardo Zuly Karina","Salas Alcantar Shirly Nicoly"],"11°":["Castillo Carrero Arley David","Castillo Gaona Kevin Stiven","Fajardo Castillo Juan Diego","Franco Parra Mebel Julieth","Garavito Garavito Karen Julieth","Pardo Beltran Kevin David","Pinzon Mora Valerin Tatiana","Pinzon Velandia Paula Andrea"]};
+/* Periodos por mes (ajusta si tu calendario es distinto): P1 ene-mar, P2 abr-jun, P3 jul-sep, P4 oct-dic */
+const per=d=>{const m=+d.slice(5,7);return m<=3?1:m<=6?2:m<=9?3:4};
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const S={user:null,sub:"Informática",grade:"6°",year:new Date().getFullYear(),view:"check",date:today(),period:0,students:[],att:[],err:"",busy:false,modal:false,ready:true,stat:"A",edit:null,cards:false};
+const $=s=>document.querySelector(s);
+const esc=t=>String(t==null||t===""?"—":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pc=n=>n==null||isNaN(n)?"—":n+"%";
+
+const ST={A:{n:"Asistencia",s:"Asistió",c:"#14a44d"},E:{n:"Evadido",s:"Evadido",c:"#e5484d"},R:{n:"Retardos",s:"Retardo",c:"#d98a00"},N:{n:"Excusa no justificada",s:"Exc. no justif.",c:"#8b5cf6"},J:{n:"Excusa justificada",s:"Exc. justif.",c:"#1473e6"}};
+let ALL={students:[],att:[]},BASE={students:[],att:[]},db=null,syncQueue=Promise.resolve();
+const TEACHER_EMAIL="englishathomeactivities@gmail.com";
+const cloneRows=rows=>rows.map(row=>({...row}));
+const sameRow=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function showError(error){S.err=error&&error.message?error.message:String(error);render()}
+async function persist(){
+ const target={students:cloneRows(ALL.students),att:cloneRows(ALL.att)};
+ syncQueue=syncQueue.then(async()=>{
+  if(!db||!S.user)throw new Error("Inicia sesión para guardar los cambios.");
+  const removedAtt=BASE.att.filter(a=>!target.att.some(b=>b.id===a.id)).map(a=>a.id).filter(Boolean);
+  const changedAtt=target.att.filter(a=>!BASE.att.some(b=>b.id===a.id&&sameRow(a,b)));
+  const removedStudents=BASE.students.filter(a=>!target.students.some(b=>b.id===a.id)).map(a=>a.id);
+  const changedStudents=target.students.filter(a=>!BASE.students.some(b=>b.id===a.id&&sameRow(a,b)));
+  if(removedAtt.length){const {error}=await db.from("attendance").delete().in("id",removedAtt);if(error)throw error}
+  if(changedAtt.length){const {error}=await db.from("attendance").upsert(changedAtt);if(error)throw error}
+  if(changedStudents.length){const {error}=await db.from("students").upsert(changedStudents);if(error)throw error}
+  if(removedStudents.length){const {error}=await db.from("students").delete().in("id",removedStudents);if(error)throw error}
+  BASE={students:cloneRows(target.students),att:cloneRows(target.att)};
+  S.err="";
+ }).catch(error=>{S.err="No se pudo guardar: "+(error.message||"error desconocido");render()});
+ return syncQueue;
+}
+async function reloadFromServer(){
+ const [students,attendance]=await Promise.all([
+  db.from("students").select("*"),
+  db.from("attendance").select("*")
+ ]);
+ if(students.error)throw students.error;
+ if(attendance.error)throw attendance.error;
+ ALL={students:students.data||[],att:attendance.data||[]};
+ BASE={students:cloneRows(ALL.students),att:cloneRows(ALL.att)};
+ load();
+}
+const uid=()=>crypto.randomUUID();
+function load(){S.students=ALL.students.filter(x=>x.year===S.year).sort((a,b)=>a.name.localeCompare(b.name));S.att=ALL.att.filter(a=>a.year===S.year);render()}
+function rowsOf(sub,grade,p){const ids=new Set(S.students.filter(x=>!grade||x.grade===grade).map(x=>x.id));return S.att.filter(a=>ids.has(a.student_id)&&(sub==="all"||a.subject===sub)&&(!p||a.period===p))}
+const cnt=(rs,k)=>rs.filter(a=>a.status===k).length;
+const fp=(n,t)=>t?(Math.round(n/t*1000)/10).toFixed(1).replace(/\.0$/,"").replace(".",",")+"%":"—";
+function cur(id){const a=S.att.find(a=>a.student_id===id&&a.subject===S.sub&&a.date===S.date);return a?a.status:null}
+function setStatus(id,k){const c=cur(id);ALL.att=ALL.att.filter(a=>!(a.student_id===id&&a.subject===S.sub&&a.date===S.date));
+ if(c!==k)ALL.att.push({id:uid(),student_id:id,subject:S.sub,date:S.date,year:S.year,period:per(S.date),status:k});persist();load()}
+function addStudent(name,grade){name=name.trim();if(!name)return;ALL.students.push({id:uid(),name,grade,year:S.year});persist();load()}
+function delStudent(id){ALL.students=ALL.students.filter(x=>x.id!==id);ALL.att=ALL.att.filter(a=>a.student_id!==id);persist();load()}
+function seed(){GRADES.forEach(g=>INI[g].forEach(n=>ALL.students.push({id:uid(),name:n,grade:g,year:S.year})));persist();load()}
+function promote(){const ny=S.year+1,n=ALL.students.filter(x=>x.year===ny).length;
+ if(n>0&&!confirm("El año "+ny+" ya tiene "+n+" estudiantes. ¿Agregar de todos modos?"))return;
+ S.students.filter(x=>GRADES.indexOf(x.grade)<GRADES.length-1).forEach(x=>ALL.students.push({id:uid(),name:x.name,grade:GRADES[GRADES.indexOf(x.grade)+1],year:ny}));S.year=ny;persist();load()}
+const PAL=["#ffd6dc","#d3e6ff","#e4d9ff","#d1f1dc","#fff0b8","#ffe3c2"];
+function av(x,z){const w=x.name.split(" ");const i=((w[0]||"")[0]||"")+((w[2]||w[1]||"")[0]||"");let h=0;for(const c of x.id)h=(h*31+c.charCodeAt(0))%PAL.length;return '<span class="av" style="width:'+z+'px;height:'+z+'px;font-size:'+Math.round(z*.38)+'px;background:'+PAL[h]+'">'+esc(i.toUpperCase())+"</span>"}
+
+function render(){
+ const sc=SUBS[S.sub],R=document.documentElement;R.style.setProperty("--bg",sc.p);R.style.setProperty("--acc",sc.c);
+ $("#tag").textContent="📋 Control de asistencia · "+S.year;
+ $("#session").innerHTML=S.user?'<div class="mut">'+esc(S.user.email)+' · <button class="pen" data-a="logout">Cerrar sesión</button></div>':"";
+ const A=$("#app"),st=ST[S.stat];
+ const gs=S.students.filter(x=>x.grade===S.grade);
+ const rs=rowsOf(S.sub,S.grade,S.view==="stats"?S.period:0);
+ const left='<div class="card"><h2>Materias</h2>'+Object.keys(SUBS).map(k=>'<button class="btn'+(k===S.sub?" on":"")+'" data-a="sub" data-v="'+k+'" style="background:'+SUBS[k].p+';--c:'+SUBS[k].c+'">'+SUBS[k].i+" "+SUBS[k].n+"</button>").join("")+"</div>";
+ let mid='<div class="card"><h2>'+sc.i+" "+sc.n+" · "+st.n+'</h2><div class="big" style="color:'+st.c+'">'+fp(cnt(rs,S.stat),rs.length)+'</div><div class="mut">'+cnt(rs,S.stat)+" de "+rs.length+" registros · "+S.grade+" · "+S.year+(S.view==="stats"&&S.period?" · periodo "+S.period:"")+'</div><div style="margin:14px 0"><button class="chip'+(S.view==="check"?" on":"")+'" data-a="view" data-v="check">✅ Registro diario</button><button class="chip'+(S.view==="stats"?" on":"")+'" data-a="view" data-v="stats">📊 Estadística</button></div>';
+ if(S.view==="check"){
+  if(S.sub==="all")mid+='<p class="mut">Elige una materia a la izquierda para registrar la asistencia del día.</p>';
+  else{const dr=rs.filter(a=>a.date===S.date);
+   mid+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><input type="date" id="dt" value="'+S.date+'" style="max-width:190px"><span class="mut">Periodo '+per(S.date)+" · toca un botón por estudiante (otra vez para quitarlo). Se guarda solo.</span></div>";
+   mid+='<div class="sum">'+Object.keys(ST).map(k=>'<span style="border-left:4px solid '+ST[k].c+'">'+ST[k].n+": <b>"+cnt(dr,k)+"</b></span>").join("")+"<span>Sin marcar: <b>"+(gs.length-dr.length)+"</b></span></div>";
+   mid+=gs.length?gs.map(x=>{const v=cur(x.id);return '<div class="row"><div class="who">'+av(x,34)+"<span>"+esc(x.name)+'</span><button class="pen" data-a="edit" data-v="'+x.id+'" title="Ficha y QR">✏️</button></div><div class="sts">'+Object.keys(ST).map(k=>'<button class="sb'+(v===k?" on":"")+'" style="--c:'+ST[k].c+'" data-a="st" data-v="'+x.id+'" data-k="'+k+'">'+ST[k].s+"</button>").join("")+"</div></div>"}).join(""):'<p class="mut">No hay estudiantes en '+S.grade+" para "+S.year+". Agrégalos en el Panel docente.</p>";}
+ }else{
+  mid+='<div>'+Object.keys(ST).map(k=>'<button class="chipc'+(S.stat===k?" on":"")+'" style="--c:'+ST[k].c+'" data-a="stat" data-v="'+k+'">'+ST[k].n+"</button>").join("")+'</div><div style="margin-bottom:8px">'+[0,1,2,3,4].map(p=>'<button class="chip'+(S.period===p?" on":"")+'" data-a="per" data-v="'+p+'">'+(p?"Periodo "+p:"Todos")+"</button>").join("")+"</div>";
+  mid+=charts()+"<h2>"+st.n+" por grado y periodo · "+sc.n+'</h2><p class="mut" style="margin:0 0 6px">Cada celda: % sobre los registros de ese grado y periodo (cantidad/total).</p><table><tr><th>Grado</th><th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>Total</th></tr>';
+  const cell=r=>r.length?fp(cnt(r,S.stat),r.length)+" ("+cnt(r,S.stat)+"/"+r.length+")":"—";
+  mid+=GRADES.map(g=>"<tr"+(g===S.grade?' style="background:var(--line)"':"")+"><td><b>"+g+"</b></td>"+[1,2,3,4].map(p=>"<td>"+cell(rowsOf(S.sub,g,p))+"</td>").join("")+"<td><b>"+cell(rowsOf(S.sub,g,0))+"</b></td></tr>").join("")+"<tr><td><b>Todos</b></td>"+[1,2,3,4].map(p=>"<td>"+cell(rowsOf(S.sub,null,p))+"</td>").join("")+"<td><b>"+cell(rowsOf(S.sub,null,0))+"</b></td></tr></table>";
+  mid+='<h2 style="margin-top:18px">Distribución de estados · '+S.grade+(S.period?" · periodo "+S.period:"")+'</h2><table><tr><th>Estado</th><th>Registros</th><th>Porcentaje</th></tr>'+Object.keys(ST).map(k=>'<tr><td style="border-left:4px solid '+ST[k].c+';padding-left:8px">'+ST[k].n+"</td><td>"+cnt(rs,k)+"</td><td>"+fp(cnt(rs,k),rs.length)+"</td></tr>").join("")+"<tr><td><b>Total</b></td><td><b>"+rs.length+"</b></td><td>—</td></tr></table>";
+  mid+='<h2 style="margin-top:18px">'+st.n+" por estudiante · "+S.grade+"</h2>";
+  const pe=gs.map(x=>{const r=rs.filter(a=>a.student_id===x.id);return{x,n:cnt(r,S.stat),t:r.length}}).sort((a,b)=>(b.t?b.n/b.t:-1)-(a.t?a.n/a.t:-1));
+  mid+=pe.length?pe.map(o=>'<div class="row"><span style="flex:1.3;font-size:14px">'+esc(o.x.name)+'</span><div class="bar"><i style="width:'+(o.t?o.n/o.t*100:0)+"%;background:"+st.c+'"></i></div><b style="width:120px;text-align:right;font-size:13px">'+(o.t?o.n+" de "+o.t+" · "+fp(o.n,o.t):"Sin registros")+"</b></div>").join(""):'<p class="mut">Sin estudiantes.</p>';
+ }
+ mid+="</div>";
+ const right='<div class="card"><h2>Grado</h2>'+GRADES.map(g=>'<button class="chip'+(g===S.grade?" on":"")+'" data-a="grade" data-v="'+g+'">'+g+"</button>").join("")+'<h2 style="margin-top:10px">Año</h2>'+YEARS.map(y=>'<button class="chip'+(y===S.year?" on":"")+'" data-a="year" data-v="'+y+'">'+y+"</button>").join("")+'<h2 style="margin-top:10px">Detalle</h2><p class="mut" style="line-height:1.7">Curso: '+S.grade+"<br>Estudiantes: "+gs.length+" (total "+S.students.length+")<br>Registros: "+rs.length+'</p><button class="act alt" style="width:100%;margin-bottom:8px" data-a="scan">📷 Escanear QR</button><button class="act alt" style="width:100%;margin-bottom:8px" data-a="cards">🪪 Carnés QR del grado</button><button class="act" style="width:100%" data-a="teacher">👩‍🏫 Panel docente</button></div>';
+ A.innerHTML=(S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':"")+'<div class="wrap">'+left+mid+right+"</div>"+(S.modal?teacherModal():"")+(S.edit?editModal():"")+(S.cards?cardsModal():"");
+ if(S.edit)drawQR();if(S.cards)drawCards();
+}
+const GC=["#1473e6","#8b5cf6","#e5484d","#14a44d","#d98a00","#ff8200"];
+const pctN=(r,k)=>r.length?cnt(r,k)/r.length*100:null;
+const svgO=()=>'<svg viewBox="0 0 520 210" style="width:100%;height:auto" role="img">';
+const box=(t,b)=>'<div style="margin:12px 0"><h2>'+t+"</h2>"+b+"</div>";
+function grid(W,H,p){let o="";[0,25,50,75,100].forEach(g=>{const y=H-p-(H-p*2)*g/100;o+='<line x1="'+p+'" x2="'+(W-8)+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)"/><text x="'+(p-5)+'" y="'+(y+3)+'" font-size="10" text-anchor="end" fill="var(--mut)">'+g+"%</text>"});return o}
+function charts(){const st=ST[S.stat],W=520,H=210,p=34,n=GRADES.length,sw=(W-p-12)/n,bw=Math.min(46,sw-14);
+ let b=svgO()+grid(W,H,p);
+ GRADES.forEach((g,i)=>{const r=rowsOf(S.sub,g,S.period),v=pctN(r,S.stat),x=p+8+i*sw+(sw-bw)/2,h=v==null?0:(H-p*2)*v/100;
+  b+='<rect x="'+x+'" y="'+(H-p-h)+'" width="'+bw+'" height="'+h+'" rx="4" fill="'+st.c+'" opacity="'+(g===S.grade?1:.55)+'"/><text x="'+(x+bw/2)+'" y="'+(H-p-h-5)+'" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)">'+(v==null?"—":fp(cnt(r,S.stat),r.length))+'</text><text x="'+(x+bw/2)+'" y="'+(H-10)+'" font-size="11" text-anchor="middle" fill="var(--mut)">'+g+"</text>"});
+ b+="</svg>";
+ const xs=[0,1,2,3].map(i=>p+30+i*((W-p-60)/3));let l=svgO()+grid(W,H,p);
+ ["P1","P2","P3","P4"].forEach((t,i)=>{l+='<text x="'+xs[i]+'" y="'+(H-10)+'" font-size="11" text-anchor="middle" fill="var(--mut)">'+t+"</text>"});
+ GRADES.forEach((g,gi)=>{const v=[1,2,3,4].map(q=>pctN(rowsOf(S.sub,g,q),S.stat)),c=GC[gi],y=z=>H-p-(H-p*2)*z/100,w=g===S.grade?3:1.5;
+  v.forEach((z,i)=>{if(z==null)return;if(i>0&&v[i-1]!=null)l+='<line x1="'+xs[i-1]+'" y1="'+y(v[i-1])+'" x2="'+xs[i]+'" y2="'+y(z)+'" stroke="'+c+'" stroke-width="'+w+'"/>';l+='<circle cx="'+xs[i]+'" cy="'+y(z)+'" r="'+(w+1.5)+'" fill="'+c+'"/>'})});
+ l+="</svg>"+'<div class="sum">'+GRADES.map((g,i)=>'<span style="border-left:4px solid '+GC[i]+'">'+g+"</span>").join("")+"</div>";
+ return box("Gráfica de barras · "+st.n+" por grado"+(S.period?" · periodo "+S.period:" · todo el año"),b)+box("Gráfica de líneas · "+st.n+" por periodo y grado",l)}
+function cardsModal(){const gs=S.students.filter(x=>x.grade===S.grade);
+ return '<div class="modal"><div class="card"><div class="noprint" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><h2 style="margin:0;flex:1;font-size:18px">🪪 Carnés QR · '+S.grade+" · "+S.year+'</h2><button class="act" data-a="cprint">Imprimir</button><button class="act alt" data-a="cclose">Cerrar</button></div><p class="mut noprint">Cada QR solo marca “Asistió” (hoy y en la materia elegida) al escanearlo con 📷 Escanear QR.</p><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px">'+gs.map(x=>'<div style="border:2px solid var(--line);border-radius:12px;padding:12px;text-align:center;break-inside:avoid">'+av(x,44)+'<div style="font-size:13px;font-weight:700;margin:6px 0 8px;min-height:34px">'+esc(x.name)+'</div><div class="qrc" data-id="'+x.id+'" style="display:flex;justify-content:center;background:#fff;padding:8px;border-radius:8px"></div><div class="mut" style="margin-top:6px">I.E. La Amistad · '+esc(x.grade)+"</div></div>").join("")+"</div></div></div>"}
+async function qrApi(action,payload){
+ const {data,error}=await db.auth.getSession();
+ if(error)throw error;
+ if(!data.session)throw new Error("La sesión expiró. Inicia sesión de nuevo.");
+ const response=await fetch("/api/qr",{
+  method:"POST",
+  headers:{"Content-Type":"application/json",Authorization:"Bearer "+data.session.access_token},
+  body:JSON.stringify({action,...payload})
+ });
+ const result=await response.json();
+ if(!response.ok)throw new Error(result.error||"No se pudo completar la operación QR.");
+ return result;
+}
+async function issueQrTokens(ids){return (await qrApi("issue",{studentIds:ids})).tokens}
+function drawCards(){
+ const els=[...document.querySelectorAll(".qrc")];
+ if(!els.length)return;
+ if(!window.QRCode){els.forEach(el=>el.textContent="No se pudo cargar el generador QR.");return}
+ els.forEach(el=>el.textContent="Generando…");
+ issueQrTokens(els.map(el=>el.dataset.id)).then(tokens=>{
+  els.forEach(el=>{if(el.isConnected&&tokens[el.dataset.id])new QRCode(el,{text:tokens[el.dataset.id],width:120,height:120})});
+ }).catch(error=>els.forEach(el=>{if(el.isConnected)el.textContent=error.message}));
+}
+let SC={stream:null,raf:0,last:"",t:0,busy:false};
+async function qrMark(qr){
+ const result=await qrApi("mark",{qr,subject:S.sub});
+ if(!result.duplicate)await reloadFromServer();
+ return result;
+}
+async function scanStart(){if(S.sub==="all"){alert("Elige primero una materia a la izquierda.");return}
+ SC.active=true;
+ $("#scan").style.display="flex";$("#scs").textContent=SUBS[S.sub].n+" · se marca “Asistió” con la fecha de hoy";$("#scl").innerHTML="";
+ try{SC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});const v=$("#scv");v.srcObject=SC.stream;await v.play();scanTick()}
+ catch(e){SC.active=false;$("#scs").textContent="No se pudo abrir la cámara. Revisa el permiso del navegador; si usas la vista previa, abre el enlace del artefacto."}}
+function scanStop(){SC.active=false;cancelAnimationFrame(SC.raf);if(SC.stream)SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null;$("#scan").style.display="none"}
+async function scanTick(){const v=$("#scv"),c=$("#scc");
+ if(v.readyState===v.HAVE_ENOUGH_DATA&&window.jsQR){c.width=v.videoWidth;c.height=v.videoHeight;const g=c.getContext("2d");g.drawImage(v,0,0);const im=g.getImageData(0,0,c.width,c.height),r=jsQR(im.data,im.width,im.height);
+  if(r&&r.data&&r.data.indexOf("LAAM|")===0&&!SC.busy&&(r.data!==SC.last||Date.now()-SC.t>4000)){
+   SC.last=r.data;SC.t=Date.now();SC.busy=true;
+   try{const result=await qrMark(r.data);$("#scl").insertAdjacentHTML("afterbegin",'<div class="row"><span>'+esc(result.student.name)+" · "+esc(result.student.grade)+"</span><b>"+(result.duplicate?"ya registrado":"✓ Asistió")+"</b></div>")}
+   catch(error){$("#scl").insertAdjacentHTML("afterbegin",'<div class="row"><span>'+esc(error.message)+'</span></div>')}
+   finally{SC.busy=false}
+  }}
+ if(SC.active)SC.raf=requestAnimationFrame(scanTick)}
+function editModal(){const x=ALL.students.find(y=>y.id===S.edit);if(!x)return"";
+ return '<div class="modal"><div class="card" style="max-width:420px;text-align:center">'+av(x,72)+'<h2 style="margin:10px 0 2px;font-size:18px">'+esc(x.name)+'</h2><div class="mut">'+esc(x.grade)+" · "+x.year+'</div><div id="qr" style="display:flex;justify-content:center;margin:14px auto;background:#fff;padding:12px;border-radius:12px;width:min-content"></div><p class="mut" style="font-size:12px;margin-top:0">QR solo de asistencia: al escanearlo se marca “Asistió” hoy</p><input type="text" id="en" value="'+esc(x.name)+'" style="margin-bottom:8px"><select id="eg">'+GRADES.map(g=>"<option"+(g===x.grade?" selected":"")+">"+g+"</option>").join("")+'</select><div style="display:flex;gap:8px;margin-top:12px"><button class="act" data-a="esave" style="flex:1">Guardar cambios</button><button class="act alt" data-a="eclose">Cerrar</button></div></div></div>'}
+function drawQR(){const x=ALL.students.find(y=>y.id===S.edit),el=$("#qr");if(!x||!el)return;
+ if(!window.QRCode){el.innerHTML='<span class="mut">No se pudo cargar el generador de QR.</span>';return}
+ el.textContent="Generando…";
+ issueQrTokens([x.id]).then(tokens=>{if(el.isConnected&&tokens[x.id])new QRCode(el,{text:tokens[x.id],width:176,height:176})})
+  .catch(error=>{if(el.isConnected)el.textContent=error.message});
+}
+function teacherModal(){
+ return '<div class="modal"><div class="card"><h2 style="font-size:18px">👩‍🏫 Panel docente · '+S.year+'</h2><p class="mut">Agrega o elimina estudiantes del año seleccionado. Al eliminar, también se borra su asistencia.</p>'
+ +'<div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;margin:10px 0"><input type="text" id="nn" placeholder="Apellidos y nombres"><select id="ng">'+GRADES.map(g=>"<option"+(g===S.grade?" selected":"")+">"+g+"</option>").join("")+'</select><button class="act" data-a="add">Agregar</button></div>'
+ +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+(S.students.length?"":'<button class="act alt" data-a="seed">Cargar lista inicial ('+S.year+")</button>")+'<button class="act alt" data-a="promote">Pasar al año '+(S.year+1)+' (suben de grado)</button><button class="act" data-a="close" style="margin-left:auto">Cerrar</button></div>'
+ +GRADES.map(g=>{const l=S.students.filter(x=>x.grade===g);return l.length?'<h2 style="margin-top:12px">'+g+" · "+l.length+"</h2>"+l.map(x=>'<div class="row"><span>'+esc(x.name)+'</span><button class="act del" data-a="del" data-v="'+x.id+'" data-n="'+esc(x.name)+'">Eliminar</button></div>').join(""):""}).join("")
+ +"</div></div>"}
+function loginRender(message=""){
+ $("#session").innerHTML="";
+ $("#app").innerHTML='<div class="login"><div class="card"><h2 style="font-size:18px">Ingreso docente</h2><p class="mut">Usa la cuenta institucional '+TEACHER_EMAIL+'.</p>'+(message?'<div class="err" role="alert">'+esc(message)+'</div>':"")+'<form id="login-form"><label class="mut" for="login-email">Correo</label><input id="login-email" type="email" autocomplete="username" required><label class="mut" for="login-password">Contraseña</label><input id="login-password" type="password" autocomplete="current-password" required><button class="act" type="submit" style="width:100%">Iniciar sesión</button></form></div></div>';
+}
+async function returnToLogin(error){
+ let message=error&&error.message?error.message:"No se pudo completar el acceso.";
+ if(db){
+  try{const {error:signOutError}=await db.auth.signOut();if(signOutError)message+=" No se pudo cerrar la sesión: "+signOutError.message}
+  catch(signOutError){message+=" No se pudo cerrar la sesión: "+(signOutError.message||"error desconocido")}
+ }
+ S.user=null;loginRender(message);
+}
+async function startApp(){
+ try{
+  const response=await fetch("/api/config");
+  const config=await response.json();
+  if(!response.ok)throw new Error(config.error||"No se pudo cargar la configuración.");
+  if(!window.supabase)throw new Error("No se pudo cargar el cliente de Supabase.");
+  db=window.supabase.createClient(config.supabaseUrl,config.supabaseAnonKey);
+  const {data,error}=await db.auth.getSession();
+  if(error)throw error;
+  db.auth.onAuthStateChange((event)=>{
+   if(event==="SIGNED_OUT"){S.user=null;ALL={students:[],att:[]};BASE={students:[],att:[]};loginRender()}
+  });
+  if(data.session){
+   if((data.session.user.email||"").toLowerCase()!==TEACHER_EMAIL){
+    await db.auth.signOut();
+    loginRender("Inicia sesión con "+TEACHER_EMAIL+".");
+    return;
+   }
+   S.user=data.session.user;
+   await reloadFromServer();
+  }else loginRender();
+ }catch(error){await returnToLogin(error)}
+}
+document.addEventListener("click",e=>{
+ const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,v=b.dataset.v;
+ if(a==="sub"){S.sub=v;render()}
+ else if(a==="view"){S.view=v;render()}
+ else if(a==="stat"){S.stat=v;render()}
+ else if(a==="per"){S.period=+v;render()}
+ else if(a==="grade"){S.grade=v;render()}
+ else if(a==="year"){S.year=+v;load()}
+ else if(a==="st"){setStatus(v,b.dataset.k)}
+ else if(a==="edit"){S.edit=v;render()}
+ else if(a==="eclose"){S.edit=null;render()}
+ else if(a==="scan"){scanStart()}
+ else if(a==="scanx"){scanStop()}
+ else if(a==="cards"){S.cards=true;render()}
+ else if(a==="cclose"){S.cards=false;render()}
+ else if(a==="cprint"){window.print()}
+ else if(a==="esave"){const x=ALL.students.find(y=>y.id===S.edit),nm=$("#en").value.trim();if(x&&nm){x.name=nm;x.grade=$("#eg").value;persist()}S.edit=null;load()}
+ else if(a==="teacher"){S.modal=true;render()}
+ else if(a==="close"){S.modal=false;render()}
+ else if(a==="add"){addStudent($("#nn").value,$("#ng").value)}
+ else if(a==="seed"){seed()}
+ else if(a==="promote"){promote()}
+ else if(a==="del"){if(confirm("¿Eliminar a "+b.dataset.n+" y toda su asistencia?"))delStudent(v)}
+ else if(a==="logout"){db.auth.signOut().then(({error})=>{if(error)loginRender(error.message)}).catch(error=>loginRender(error.message))}
+});
+document.addEventListener("submit",async e=>{
+ if(e.target.id!=="login-form")return;
+ e.preventDefault();
+ const button=e.target.querySelector('button[type="submit"]');
+ button.disabled=true;button.textContent="Ingresando…";
+ try{
+  const {data,error}=await db.auth.signInWithPassword({
+   email:$("#login-email").value.trim(),
+   password:$("#login-password").value
+  });
+  if(error)throw error;
+  if((data.user.email||"").toLowerCase()!==TEACHER_EMAIL){
+   await db.auth.signOut();
+   loginRender("Este sistema está habilitado únicamente para "+TEACHER_EMAIL+".");
+   return;
+  }
+  S.user=data.user;
+  await reloadFromServer();
+ }catch(error){await returnToLogin(error)}
+});
+document.addEventListener("change",e=>{if(e.target.id==="dt"&&e.target.value){S.date=e.target.value;render()}});
+startApp();
+</script></body></html>
