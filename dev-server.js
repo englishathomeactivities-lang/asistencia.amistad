@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const root = __dirname;
 const envFile = path.join(root, ".env.local");
-const requiredEnv = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "QR_SECRET"];
+const requiredEnv = ["SUPABASE_URL", "QR_SECRET"];
 const port = Number(process.env.PORT || 3000);
 
 if (fs.existsSync(envFile)) {
@@ -17,9 +17,12 @@ if (fs.existsSync(envFile)) {
 }
 
 const missing = requiredEnv.filter((name) => !process.env[name]);
-if (missing.length) {
-  console.error(`Faltan variables de entorno: ${missing.join(", ")}. Configúralas en .env.local.`);
-  process.exit(1);
+if (!process.env.SUPABASE_ANON_KEY && !process.env.SUPABASE_PUBLISHABLE_KEY) {
+  missing.push("SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY");
+}
+const previewMode = missing.length > 0;
+if (previewMode) {
+  console.warn(`Faltan variables de entorno: ${missing.join(", ")}. El servidor abrirá el prototipo local sin conexión.`);
 }
 
 const configHandler = require("./api/config.js");
@@ -96,10 +99,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (previewMode && url.searchParams.get("preview") !== "1") {
+    res.writeHead(302, { Location: "/?preview=1" }).end();
+    return;
+  }
+
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   fs.createReadStream(path.join(root, "index.html")).pipe(res);
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Asistencia disponible en http://localhost:${port}`);
+  console.log(`Asistencia disponible en http://localhost:${port}${previewMode ? "/?preview=1 (prototipo sin conexión)" : ""}`);
 });

@@ -17,10 +17,18 @@ create table public.attendance (
   subject text not null check (subject in ('Informática', 'Ética', 'Inglés', 'Proyecto Lector')),
   date date not null,
   year integer not null,
-  period integer not null check (period between 1 and 4),
-  status text not null check (status in ('A', 'E', 'R', 'N', 'J')),
+  period integer check (period between 1 and 4),
+  class_id text not null default 'general',
+  status text not null check (status in ('A', 'F', 'E', 'R', 'N', 'J')),
   created_at timestamptz not null default now(),
-  unique (student_id, subject, date)
+  unique (student_id, subject, date, class_id)
+);
+
+create table public.school_year_settings (
+  year integer primary key,
+  periods jsonb not null default '[]'::jsonb,
+  schedule jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
 );
 
 create index students_year_grade_idx on public.students (year, grade);
@@ -49,6 +57,7 @@ grant execute on function public.is_teacher() to authenticated;
 alter table public.profiles enable row level security;
 alter table public.students enable row level security;
 alter table public.attendance enable row level security;
+alter table public.school_year_settings enable row level security;
 
 create policy "Teachers can read their own profile"
   on public.profiles for select to authenticated
@@ -64,6 +73,12 @@ create policy "Teachers can manage attendance"
   using ((select public.is_teacher()))
   with check ((select public.is_teacher()));
 
+create policy "Teachers can manage school year settings"
+  on public.school_year_settings for all to authenticated
+  using ((select public.is_teacher()))
+  with check ((select public.is_teacher()));
+
 grant select on public.profiles to authenticated;
 grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
+grant select, insert, update, delete on public.school_year_settings to authenticated;

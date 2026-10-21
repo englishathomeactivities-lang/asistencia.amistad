@@ -6,13 +6,14 @@ module.exports = function handler(req, res) {
     return res.status(405).json({ error: "Método no permitido." });
   }
 
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const { SUPABASE_URL } = process.env;
+  const supabasePublicKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!SUPABASE_URL || !supabasePublicKey) {
     return res.status(500).json({ error: "Falta configurar Supabase en Vercel." });
   }
 
   return res.status(200).json({
     supabaseUrl: SUPABASE_URL,
-    supabaseAnonKey: SUPABASE_ANON_KEY,
+    supabaseAnonKey: supabasePublicKey,
   });
 };

@@ -8,6 +8,7 @@ const SUBJECTS = new Set([
 ]);
 const TEACHER_EMAIL = "englishathomeactivities@gmail.com";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const supabasePublicKey = () => process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
 function fail(status, message) {
   const error = new Error(message);
@@ -19,7 +20,7 @@ async function supabase(path, token, options = {}) {
   const response = await fetch(`${process.env.SUPABASE_URL}${path}`, {
     ...options,
     headers: {
-      apikey: process.env.SUPABASE_ANON_KEY,
+      apikey: supabasePublicKey(),
       Authorization: `Bearer ${token}`,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...options.headers,
@@ -71,6 +72,13 @@ function todayInBogota() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function periodFor(date, periods) {
+  const period = Array.isArray(periods)
+    ? periods.find((item) => item && date >= item.start && date <= item.end)
+    : null;
+  return period ? period.period : null;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") {
@@ -78,7 +86,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Método no permitido." });
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.QR_SECRET) {
+  if (!process.env.SUPABASE_URL || !supabasePublicKey() || !process.env.QR_SECRET) {
     return res.status(500).json({ error: "Falta configurar Supabase o la firma de QR en Vercel." });
   }
 
@@ -134,11 +142,35 @@ module.exports = async function handler(req, res) {
       if (!student) fail(404, "El estudiante del código no existe.");
 
       const date = todayInBogota();
+      const classId = body.classId === undefined ? "general" : body.classId;
+      if (typeof classId !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(classId)) {
+        fail(400, "La clase seleccionada no es válida.");
+      }
+      const year = Number(date.slice(0, 4));
+      const settingsQuery = new URLSearchParams({
+        select: "periods,schedule",
+        year: `eq.${year}`,
+        limit: "1",
+      });
+      const settings = await supabase(`/rest/v1/school_year_settings?${settingsQuery}`, token);
+      const yearSettings = settings[0] || {};
+      if (classId !== "general") {
+        const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+        const scheduledClass = Array.isArray(yearSettings.schedule)
+          ? yearSettings.schedule.find((item) => item && item.id === classId)
+          : null;
+        if (!scheduledClass || scheduledClass.subject !== body.subject ||
+            !Array.isArray(scheduledClass.grades) || !scheduledClass.grades.includes(student.grade) ||
+            scheduledClass.day !== weekday) {
+          fail(400, "La clase seleccionada no corresponde al horario de hoy para este estudiante.");
+        }
+      }
       const attendanceQuery = new URLSearchParams({
         select: "id,status",
         student_id: `eq.${studentId}`,
         subject: `eq.${body.subject}`,
         date: `eq.${date}`,
+        class_id: `eq.${classId}`,
         limit: "1",
       });
       const existing = await supabase(`/rest/v1/attendance?${attendanceQuery}`, token);
@@ -146,10 +178,9 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ duplicate: true, student });
       }
 
-      const month = Number(date.slice(5, 7));
-      const period = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+      const period = periodFor(date, yearSettings.periods);
       const rows = await supabase(
-        "/rest/v1/attendance?on_conflict=student_id%2Csubject%2Cdate",
+        "/rest/v1/attendance?on_conflict=student_id%2Csubject%2Cdate%2Cclass_id",
         token,
         {
           method: "POST",
@@ -160,6 +191,7 @@ module.exports = async function handler(req, res) {
             date,
             year: student.year,
             period,
+            class_id: classId,
             status: "A",
           }]),
         },
