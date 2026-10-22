@@ -93,7 +93,7 @@ const makeSettings=year=>year===2026
  :{periods:[],schedule:[]};
 const periodFor=(date,periods)=>{const found=periods.find(p=>date>=p.start&&date<=p.end);return found?found.period:null};
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const S={user:null,sub:"Informática",grade:"6°",summaryGrade:"6°",summaryPeriod:4,year:new Date().getFullYear(),view:"week",date:today(),period:4,periodWeek:0,statMonth:String(new Date().getMonth()+1).padStart(2,"0"),statStatus:"all",statView:"month",students:[],att:[],pendingAttendance:new Map(),attendanceSaveState:new Map(),attendanceSaveTimers:new Map(),savingAttendanceScopes:new Set(),err:"",notice:"",busy:false,modal:false,ready:true,stat:"all",edit:null,cards:false,settings:makeSettings(new Date().getFullYear()),settingsAvailable:true,preview:false,scheduleModal:false,editingClass:null,activeClass:null,attendanceGrade:null};
+const S={user:null,sub:"Informática",grade:"6°",summaryGrade:"6°",summaryPeriod:4,year:new Date().getFullYear(),view:"week",date:today(),period:4,periodWeek:0,statMonth:String(new Date().getMonth()+1).padStart(2,"0"),statStatus:"all",statView:"month",students:[],att:[],pendingAttendance:new Map(),attendanceSaveState:new Map(),attendanceSaveErrors:new Map(),attendanceSaveTimers:new Map(),savingAttendanceScopes:new Set(),err:"",notice:"",busy:false,modal:false,ready:true,stat:"all",edit:null,cards:false,settings:makeSettings(new Date().getFullYear()),settingsAvailable:true,preview:false,scheduleModal:false,editingClass:null,activeClass:null,attendanceGrade:null};
 const $=s=>document.querySelector(s);
 const esc=t=>String(t==null||t===""?"—":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pc=n=>n==null||isNaN(n)?"—":n+"%";
@@ -101,6 +101,7 @@ const pc=n=>n==null||isNaN(n)?"—":n+"%";
 const ST={A:{n:"Asistencia",s:"Asistió",c:"#14a44d"},F:{n:"Falta",s:"Falta",c:"#b42318"},E:{n:"Evadido",s:"Evadido",c:"#e5484d"},R:{n:"Retardo",s:"Retardo",c:"#d98a00"},N:{n:"Excusa no justificada",s:"Exc. no justif.",c:"#8b5cf6"},J:{n:"Excusa justificada",s:"Exc. justif.",c:"#1473e6"}};
 const MONTHS=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 let ALL={students:[],att:[]},BASE={students:[],att:[]},db=null,syncQueue=Promise.resolve();
+let attendanceSaveInFlight=null;
 const TEACHER_EMAIL="englishathomeactivities@gmail.com";
 const cloneRows=rows=>rows.map(row=>({...row}));
 const sameRow=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -239,10 +240,10 @@ function scheduleAttendanceSave(classId,date){
  if(timer)clearTimeout(timer);
  S.attendanceSaveTimers.delete(scope);
  if(!pendingForScope(classId,date).length){
-  if(!S.savingAttendanceScopes.has(scope))S.attendanceSaveState.set(scope,"saved");
+  if(!S.savingAttendanceScopes.has(scope)){S.attendanceSaveState.set(scope,"saved");S.attendanceSaveErrors.delete(scope)}
   return;
  }
- S.attendanceSaveState.set(scope,"pending");
+ S.attendanceSaveState.set(scope,"pending");S.attendanceSaveErrors.delete(scope);
  S.attendanceSaveTimers.set(scope,setTimeout(()=>saveAttendanceChanges(classId,date),450));
 }
 function attendanceSaveStatus(classId,date){
@@ -266,30 +267,51 @@ function setStatus(id,k){
  const classId=classSessionId(),record={student_id:id,subject:S.sub,date:S.date,year:S.year,period:periodFor(S.date,S.settings.periods),class_id:classId};
  stageAttendance(record,cur(id,classId,S.date,S.sub)===k?null:k);render();
 }
-async function saveAttendanceChanges(classId,date){
- const scope=attendanceScopeKey(classId,date);
- if(S.savingAttendanceScopes.has(scope))return;
- const pending=pendingForScope(classId,date);
- if(!pending.length)return;
+async function saveAttendanceScopes(scopes){
+ while(attendanceSaveInFlight)await attendanceSaveInFlight;
+ const scopeSet=new Set(scopes),pending=[...S.pendingAttendance.entries()].filter(([,record])=>record&&scopeSet.has(attendanceScopeKey(record.class_id||"general",record.date,record.year)));
+ if(!pending.length)return true;
+ const activeScopes=new Set(pending.map(([,record])=>attendanceScopeKey(record.class_id||"general",record.date,record.year)));
  const pendingKeys=new Set(pending.map(([key])=>key)),original=cloneRows(ALL.att.filter(record=>pendingKeys.has(attendanceKey(record))));
- const timer=S.attendanceSaveTimers.get(scope);if(timer)clearTimeout(timer);
- S.attendanceSaveTimers.delete(scope);S.savingAttendanceScopes.add(scope);S.attendanceSaveState.set(scope,"saving");S.err="";render();
- pending.forEach(([key,record])=>{
-  const index=ALL.att.findIndex(item=>attendanceKey(item)===key);
-  if(record.status===null){if(index>=0)ALL.att.splice(index,1)}
-  else if(index>=0)ALL.att[index]={...ALL.att[index],...record};
-  else ALL.att.push({...record});
+ activeScopes.forEach(scope=>{
+  const timer=S.attendanceSaveTimers.get(scope);if(timer)clearTimeout(timer);
+  S.attendanceSaveTimers.delete(scope);S.savingAttendanceScopes.add(scope);
+  S.attendanceSaveState.set(scope,"saving");S.attendanceSaveErrors.delete(scope);
  });
- const saved=await persist();
- S.savingAttendanceScopes.delete(scope);
- if(saved){
-  pending.forEach(([key,record])=>{if(S.pendingAttendance.get(key)===record)S.pendingAttendance.delete(key)});
-  S.attendanceSaveState.set(scope,"saved");
- }else{
-  ALL.att=ALL.att.filter(record=>!pendingKeys.has(attendanceKey(record))).concat(original);
-  S.attendanceSaveState.set(scope,"error");
- }
- load();
+ S.err="";render();
+ const saveTask=(async()=>{
+  pending.forEach(([key,record])=>{
+   const index=ALL.att.findIndex(item=>attendanceKey(item)===key);
+   if(record.status===null){if(index>=0)ALL.att.splice(index,1)}
+   else if(index>=0)ALL.att[index]={...ALL.att[index],...record};
+   else ALL.att.push({...record});
+  });
+  const saved=await persist();
+  const errorMessage=saved?"":S.err.replace(/^No se pudo guardar:\s*/,"").slice(0,240)||"No se recibió confirmación del servidor.";
+  activeScopes.forEach(scope=>S.savingAttendanceScopes.delete(scope));
+  if(saved){
+   pending.forEach(([key,record])=>{if(S.pendingAttendance.get(key)===record)S.pendingAttendance.delete(key)});
+   activeScopes.forEach(scope=>{
+    S.attendanceSaveErrors.delete(scope);
+     const remains=[...S.pendingAttendance.values()].some(record=>record&&attendanceScopeKey(record.class_id||"general",record.date,record.year)===scope);
+     S.attendanceSaveState.set(scope,remains?"pending":"saved");
+    });
+  }else{
+   ALL.att=ALL.att.filter(record=>!pendingKeys.has(attendanceKey(record))).concat(original);
+   activeScopes.forEach(scope=>{
+    S.attendanceSaveErrors.set(scope,errorMessage);
+    S.attendanceSaveState.set(scope,"error");
+   });
+  }
+  load();
+  return saved;
+ })();
+ attendanceSaveInFlight=saveTask;
+ try{return await saveTask}
+ finally{if(attendanceSaveInFlight===saveTask)attendanceSaveInFlight=null}
+}
+function saveAttendanceChanges(classId,date){
+ return saveAttendanceScopes([attendanceScopeKey(classId,date)]);
 }
 function markClassUnmarked(itemId,date,grade=null){
  const item=S.settings.schedule.find(x=>x.id===itemId);if(!item)return;
@@ -299,7 +321,7 @@ function markClassUnmarked(itemId,date,grade=null){
  students.forEach(student=>stageAttendance({student_id:student.id,subject:item.subject,date,year:S.year,period:periodFor(date,S.settings.periods),class_id:item.id},"A"));
  render();
 }
-function replicateClassStatuses(itemId,date,grade){
+async function replicateClassStatuses(itemId,date,grade){
  const source=S.settings.schedule.find(item=>item.id===itemId);
  if(!source||!grade||!source.grades.includes(grade))return;
  const students=classStudents(source,grade);
@@ -319,7 +341,15 @@ function replicateClassStatuses(itemId,date,grade){
  const targetNames=targets.map(item=>item.subject+" ("+item.slots.map(slot=>slot+".ª").join(", ")+")").join(", ");
  const skipped=existing.length;
  if(!confirm("Se copiarán "+copies.length+" "+(copies.length===1?"estado":"estados")+" de "+grade+" a: "+targetNames+".\n\nLos estados que ya existan en esas clases no se modificarán"+(skipped?" ("+skipped+" registros protegidos).":"")+" ¿Continuar?"))return;
- copies.forEach(record=>stageAttendance(record,record.status));render();
+ copies.forEach(record=>stageAttendance(record,record.status));
+ const scopes=[...new Set(copies.map(record=>attendanceScopeKey(record.class_id,record.date,record.year)))];
+ const saved=await saveAttendanceScopes(scopes);
+ const failedScopes=scopes.filter(scope=>S.attendanceSaveErrors.has(scope));
+ const errorDetail=failedScopes.map(scope=>S.attendanceSaveErrors.get(scope)).find(Boolean);
+ S.notice=saved
+  ?"Lista replicada y guardada en "+scopes.length+" "+(scopes.length===1?"clase":"clases")+" ("+copies.length+" "+(copies.length===1?"registro":"registros")+")."+(skipped?" Se conservaron "+skipped+" estados existentes.":"")
+  :"No se pudo confirmar la réplica en "+failedScopes.length+" "+(failedScopes.length===1?"clase":"clases")+". Los cambios siguen pendientes en esta pestaña; reintenta el guardado. "+(errorDetail||"");
+ render();
 }
 function markUnmarkedPresent(){
  const students=classStudents().filter(x=>!cur(x.id));
@@ -389,10 +419,11 @@ function attendanceSaveIndicator(classId,date){
  return '<span class="save-state" aria-label="'+labels[status]+'"><i class="save-dot '+status+'" aria-hidden="true"></i>'+labels[status]+'</span>';
 }
 function attendanceSavePanel(item,date){
- const status=attendanceSaveStatus(item.id,date),pending=pendingForScope(item.id,date).length>0,busy=S.savingAttendanceScopes.has(attendanceScopeKey(item.id,date));
- const label=status==="error"?"No se pudo guardar. Revisa tu conexión y vuelve a intentar.":status==="saving"?"Guardando esta lista…":pending?"Guardando automáticamente…":"Los cambios de esta hora se guardan automáticamente.";
+ const status=attendanceSaveStatus(item.id,date),pending=pendingForScope(item.id,date).length>0;
+ const detail=status==="error"?S.attendanceSaveErrors.get(attendanceScopeKey(item.id,date))||"":"";
+ const label=status==="error"?"No se pudo guardar.":status==="saving"?"Guardando esta lista…":pending?"Guardando automáticamente…":"Los cambios de esta hora se guardan automáticamente.";
  const button=status==="error"?"Reintentar guardado":"Guardar ahora";
- return '<div class="hour-save '+(pending?"dirty":"clean")+'" role="status">'+attendanceSaveIndicator(item.id,date)+'<span class="mut">'+label+'</span><button class="act alt" data-a="save-hour" data-class="'+esc(item.id)+'" data-date="'+date+'"'+(!pending||busy?' disabled':'')+'>'+button+'</button></div>';
+ return '<div class="hour-save '+(pending?"dirty":"clean")+'" role="status">'+attendanceSaveIndicator(item.id,date)+'<span class="mut">'+label+(detail?'<br><small>'+esc(detail)+'</small>':"")+'</span><button class="act alt" data-a="save-pending"'+(!S.pendingAttendance.size||S.savingAttendanceScopes.size?' disabled':'')+'>'+button+'</button></div>';
 }
 
 function render(){
@@ -439,7 +470,10 @@ function render(){
   const sidebar='<aside class="card"><h2>Materias</h2>'+subjectButtons+'<details class="fold"><summary>Curso y año · '+S.grade+' · '+S.year+'</summary>'+GRADES.map(g=>'<button class="chip'+(g===S.grade?" on":"")+'" data-a="grade" data-v="'+g+'">'+g+'</button>').join("")+'<h2 style="margin-top:10px">Año</h2>'+YEARS.map(y=>'<button class="chip'+(y===S.year?" on":"")+'" data-a="year" data-v="'+y+'">'+y+"</button>").join("")+'</details><details class="fold"><summary>Herramientas</summary><button class="act alt" data-a="cards">🪪 Carnés QR</button><button class="act" data-a="teacher">👩‍🏫 Panel docente</button></details></aside>';
   content='<div class="subject-stat">'+sidebar+'<div>'+stats+'</div></div>';
  }
- A.innerHTML=(S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':"")+(S.notice?'<div class="class-card" role="status">'+esc(S.notice)+'</div>':"")+(S.pendingAttendance.size&&S.view!=="week"?'<div class="class-card" role="status">Hay '+S.pendingAttendance.size+' cambios de asistencia pendientes de guardado automático; las estadísticas mostrarán los datos cuando se complete el guardado.</div>':"")+nav+content+(S.modal?teacherModal():"")+(S.scheduleModal?scheduleModal():"")+(S.edit?editModal():"")+(S.cards?cardsModal():"");
+ const pendingBanner=S.pendingAttendance.size
+  ?'<div class="class-card" role="status"><span>'+S.pendingAttendance.size+' cambios de asistencia pendientes; no cierres ni refresques esta pestaña hasta que aparezca “Guardado”.</span> <button class="act alt" data-a="save-pending"'+(S.savingAttendanceScopes.size?' disabled':'')+'>Guardar pendientes ahora</button></div>'
+  :"";
+ A.innerHTML=(S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':"")+(S.notice?'<div class="class-card" role="status">'+esc(S.notice)+'</div>':"")+pendingBanner+nav+content+(S.modal?teacherModal():"")+(S.scheduleModal?scheduleModal():"")+(S.edit?editModal():"")+(S.cards?cardsModal():"");
  if(S.edit)drawQR();if(S.cards)drawCards();
 }
 const svgO=(viewBox="0 0 620 270",label="Gráfica de asistencia")=>'<svg class="stats-chart" viewBox="'+viewBox+'" role="img" aria-label="'+esc(label)+'">';
@@ -753,6 +787,7 @@ function saveClassEditor(){
 window.addEventListener("beforeunload",e=>{if(S.pendingAttendance.size){e.preventDefault();e.returnValue=""}});
 document.addEventListener("click",async e=>{
  const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,v=b.dataset.v;
+ if(a==="save-pending"&&S.savingAttendanceScopes.size)return;
  if(["day-status","day-all-present","replicate-day","save-hour"].includes(a)&&S.savingAttendanceScopes.has(attendanceScopeKey(b.dataset.class,b.dataset.date)))return;
  if(a==="sub"){S.sub=v;S.activeClass=null;render()}
  else if(a==="view"){S.view=v;render()}
@@ -771,8 +806,9 @@ document.addEventListener("click",async e=>{
  else if(a==="class"){const item=S.settings.schedule.find(x=>x.id===v);if(item){S.activeClass=v;S.attendanceGrade=item.grades.includes(S.grade)?S.grade:item.grades[0];S.grade=S.attendanceGrade;S.sub=item.subject;render()}}
  else if(a==="day-status"){const item=S.settings.schedule.find(x=>x.id===b.dataset.class);if(item)setStatusFor(v,b.dataset.k,item,b.dataset.date)}
  else if(a==="day-all-present"){markClassUnmarked(b.dataset.class,b.dataset.date,b.dataset.grade||null)}
- else if(a==="replicate-day"){replicateClassStatuses(b.dataset.class,b.dataset.date,b.dataset.grade)}
+ else if(a==="replicate-day"){await replicateClassStatuses(b.dataset.class,b.dataset.date,b.dataset.grade)}
  else if(a==="save-hour"){await saveAttendanceChanges(b.dataset.class,b.dataset.date)}
+ else if(a==="save-pending"){const scopes=[...new Set([...S.pendingAttendance.values()].filter(Boolean).map(record=>attendanceScopeKey(record.class_id||"general",record.date,record.year)))];await saveAttendanceScopes(scopes)}
  else if(a==="st"){setStatus(v,b.dataset.k)}
  else if(a==="edit"){S.edit=v;render()}
  else if(a==="eclose"){S.edit=null;render()}
