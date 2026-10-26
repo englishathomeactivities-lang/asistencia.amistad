@@ -93,7 +93,7 @@ const makeSettings=year=>year===2026
  :{periods:[],schedule:[]};
 const periodFor=(date,periods)=>{const found=periods.find(p=>date>=p.start&&date<=p.end);return found?found.period:null};
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
-const S={user:null,sub:"Informática",grade:"6°",summaryGrade:"6°",summaryPeriod:4,year:new Date().getFullYear(),view:"week",date:today(),period:4,periodWeek:0,statMonth:String(new Date().getMonth()+1).padStart(2,"0"),statStatus:"all",statView:"month",students:[],att:[],pendingAttendance:new Map(),attendanceSaveState:new Map(),attendanceSaveErrors:new Map(),attendanceSaveTimers:new Map(),savingAttendanceScopes:new Set(),err:"",notice:"",busy:false,modal:false,ready:true,stat:"all",edit:null,cards:false,settings:makeSettings(new Date().getFullYear()),settingsAvailable:true,preview:false,scheduleModal:false,editingClass:null,activeClass:null,attendanceGrade:null};
+const S={user:null,sub:"Informática",grade:"6°",summaryGrade:"6°",summaryPeriod:4,year:new Date().getFullYear(),view:"week",date:today(),period:4,periodWeek:0,statMonth:String(new Date().getMonth()+1).padStart(2,"0"),statStatus:"all",statView:"month",students:[],att:[],pendingAttendance:new Map(),attendanceSaveState:new Map(),attendanceSaveErrors:new Map(),attendanceSaveTimers:new Map(),attendanceRetryTimers:new Map(),attendanceRetryAttempts:new Map(),savingAttendanceScopes:new Set(),err:"",notice:"",busy:false,modal:false,ready:true,stat:"all",edit:null,cards:false,settings:makeSettings(new Date().getFullYear()),settingsAvailable:true,preview:false,scheduleModal:false,editingClass:null,activeClass:null,attendanceGrade:null};
 const $=s=>document.querySelector(s);
 const esc=t=>String(t==null||t===""?"—":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pc=n=>n==null||isNaN(n)?"—":n+"%";
@@ -105,6 +105,8 @@ let attendanceSaveInFlight=null;
 const TEACHER_EMAIL="englishathomeactivities@gmail.com";
 const cloneRows=rows=>rows.map(row=>({...row}));
 const sameRow=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const ATTENDANCE_QUEUE_KEY="asistencia-pending:"+TEACHER_EMAIL.toLowerCase();
+const ATTENDANCE_RETRY_DELAYS=[2000,5000,15000,30000,60000];
 function showError(error){S.err=error&&error.message?error.message:String(error);render()}
 async function persist(){
  if(S.preview){
@@ -173,7 +175,9 @@ async function reloadFromServer(){
  if(attendance.error)throw attendance.error;
  ALL={students:students.data||[],att:attendance.data||[]};
  BASE={students:cloneRows(ALL.students),att:cloneRows(ALL.att)};
+ const pendingScopes=restorePendingAttendance();
  load();
+ if(pendingScopes.length)void saveAttendanceScopes(pendingScopes);
 }
 const uid=()=>crypto.randomUUID();
 function load(){S.students=ALL.students.filter(x=>x.year===S.year).sort((a,b)=>a.name.localeCompare(b.name));S.att=ALL.att.filter(a=>a.year===S.year);render()}
@@ -232,6 +236,72 @@ function committedAttendance(record){return S.att.find(item=>attendanceKey(item)
 function currentAttendance(record){const key=attendanceKey(record);return S.pendingAttendance.has(key)?S.pendingAttendance.get(key):committedAttendance(record)}
 function cur(id,classId=classSessionId(),date=S.date,subject=S.sub){const record={year:S.year,student_id:id,subject,date,class_id:classId};return currentAttendance(record)?.status||null}
 function attendanceScopeKey(classId,date,year=S.year){return [year,date,classId].join("|")}
+function persistPendingAttendance(){
+ if(S.preview)return true;
+ try{
+  const pending=[...S.pendingAttendance.values()];
+  if(pending.length)window.localStorage.setItem(ATTENDANCE_QUEUE_KEY,JSON.stringify(pending));
+  else window.localStorage.removeItem(ATTENDANCE_QUEUE_KEY);
+  return true;
+ }catch(error){
+  S.err="No se pudieron proteger localmente los cambios pendientes: "+(error.message||"error desconocido");
+  return false;
+ }
+}
+function restorePendingAttendance(){
+ if(S.preview)return[];
+ let raw;
+ try{raw=window.localStorage.getItem(ATTENDANCE_QUEUE_KEY)}
+ catch(error){S.err="No se pudieron recuperar los cambios pendientes del navegador: "+(error.message||"error desconocido");return[]}
+ if(!raw)return[];
+ let stored;
+ try{stored=JSON.parse(raw)}
+ catch(error){S.err="La cola local de asistencia está dañada y no se pudo recuperar: "+(error.message||"error desconocido");return[]}
+ if(!Array.isArray(stored)){S.err="La cola local de asistencia tiene un formato no válido.";return[]}
+ if(stored.some(record=>!record||typeof record!=="object"||Array.isArray(record)||
+  typeof record.student_id!=="string"||typeof record.subject!=="string"||
+  typeof record.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(record.date)||
+  !Number.isInteger(record.year)||typeof record.id!=="string"||
+  !(record.class_id==null||typeof record.class_id==="string")||
+  !(record.status===null||Object.prototype.hasOwnProperty.call(ST,record.status)))){
+  S.err="La cola local de asistencia contiene un registro no válido; los datos locales se conservaron.";
+  return[];
+ }
+ for(const record of stored){
+  const restored={...record,class_id:record.class_id||"general"};
+  const committed=ALL.att.find(item=>attendanceKey(item)===attendanceKey(restored));
+  if(restored.status===(committed?.status||null))continue;
+  const key=attendanceKey(restored),scope=attendanceScopeKey(restored.class_id,restored.date,restored.year);
+  S.pendingAttendance.set(key,restored);
+  S.attendanceSaveState.set(scope,"pending");
+ }
+ const scopes=[...new Set([...S.pendingAttendance.values()].map(record=>attendanceScopeKey(record.class_id||"general",record.date,record.year)))];
+ persistPendingAttendance();
+ return scopes;
+}
+function hasPendingAttendanceScope(scope){
+ return [...S.pendingAttendance.values()].some(record=>record&&attendanceScopeKey(record.class_id||"general",record.date,record.year)===scope);
+}
+function scheduleAttendanceRetry(scope){
+ if(S.attendanceRetryTimers.has(scope)||!hasPendingAttendanceScope(scope))return;
+ if(typeof navigator!=="undefined"&&navigator.onLine===false)return;
+ const attempt=S.attendanceRetryAttempts.get(scope)||0;
+ const delay=ATTENDANCE_RETRY_DELAYS[Math.min(attempt,ATTENDANCE_RETRY_DELAYS.length-1)];
+ S.attendanceRetryAttempts.set(scope,attempt+1);
+ S.attendanceRetryTimers.set(scope,setTimeout(()=>{
+  S.attendanceRetryTimers.delete(scope);
+  void saveAttendanceScopes([scope]);
+ },delay));
+}
+function retryPendingAttendanceNow(){
+ const scopes=[...new Set([...S.pendingAttendance.values()].filter(Boolean).map(record=>attendanceScopeKey(record.class_id||"general",record.date,record.year)))];
+ scopes.forEach(scope=>{
+  const timer=S.attendanceRetryTimers.get(scope);
+  if(timer)clearTimeout(timer);
+  S.attendanceRetryTimers.delete(scope);
+ });
+ if(scopes.length)void saveAttendanceScopes(scopes);
+}
 function pendingForScope(classId,date){
  return [...S.pendingAttendance.entries()].filter(([,record])=>record&&record.class_id===classId&&record.date===date&&record.year===S.year);
 }
@@ -240,9 +310,17 @@ function scheduleAttendanceSave(classId,date){
  if(timer)clearTimeout(timer);
  S.attendanceSaveTimers.delete(scope);
  if(!pendingForScope(classId,date).length){
+  const retryTimer=S.attendanceRetryTimers.get(scope);
+  if(retryTimer)clearTimeout(retryTimer);
+  S.attendanceRetryTimers.delete(scope);
+  S.attendanceRetryAttempts.delete(scope);
   if(!S.savingAttendanceScopes.has(scope)){S.attendanceSaveState.set(scope,"saved");S.attendanceSaveErrors.delete(scope)}
   return;
  }
+ const retryTimer=S.attendanceRetryTimers.get(scope);
+ if(retryTimer)clearTimeout(retryTimer);
+ S.attendanceRetryTimers.delete(scope);
+ S.attendanceRetryAttempts.delete(scope);
  S.attendanceSaveState.set(scope,"pending");S.attendanceSaveErrors.delete(scope);
  S.attendanceSaveTimers.set(scope,setTimeout(()=>saveAttendanceChanges(classId,date),450));
 }
@@ -253,10 +331,12 @@ function stageAttendance(record,status){
  const key=attendanceKey(record),committed=committedAttendance(record);
  if(status===(committed?.status||null)){
   S.pendingAttendance.delete(key);
+  persistPendingAttendance();
   scheduleAttendanceSave(record.class_id||"general",record.date);
   return;
  }
  S.pendingAttendance.set(key,{...committed,...record,id:committed?.id||uid(),status});
+ persistPendingAttendance();
  scheduleAttendanceSave(record.class_id||"general",record.date);
 }
 function setStatusFor(id,k,item,date){
@@ -276,6 +356,8 @@ async function saveAttendanceScopes(scopes){
  activeScopes.forEach(scope=>{
   const timer=S.attendanceSaveTimers.get(scope);if(timer)clearTimeout(timer);
   S.attendanceSaveTimers.delete(scope);S.savingAttendanceScopes.add(scope);
+  const retryTimer=S.attendanceRetryTimers.get(scope);if(retryTimer)clearTimeout(retryTimer);
+  S.attendanceRetryTimers.delete(scope);
   S.attendanceSaveState.set(scope,"saving");S.attendanceSaveErrors.delete(scope);
  });
  S.err="";render();
@@ -292,16 +374,20 @@ async function saveAttendanceScopes(scopes){
   if(saved){
    pending.forEach(([key,record])=>{if(S.pendingAttendance.get(key)===record)S.pendingAttendance.delete(key)});
    activeScopes.forEach(scope=>{
+    S.attendanceRetryAttempts.delete(scope);
     S.attendanceSaveErrors.delete(scope);
      const remains=[...S.pendingAttendance.values()].some(record=>record&&attendanceScopeKey(record.class_id||"general",record.date,record.year)===scope);
      S.attendanceSaveState.set(scope,remains?"pending":"saved");
     });
+   persistPendingAttendance();
   }else{
    ALL.att=ALL.att.filter(record=>!pendingKeys.has(attendanceKey(record))).concat(original);
    activeScopes.forEach(scope=>{
     S.attendanceSaveErrors.set(scope,errorMessage);
     S.attendanceSaveState.set(scope,"error");
+    scheduleAttendanceRetry(scope);
    });
+   persistPendingAttendance();
   }
   load();
   return saved;
@@ -421,7 +507,7 @@ function attendanceSaveIndicator(classId,date){
 function attendanceSavePanel(item,date){
  const status=attendanceSaveStatus(item.id,date),pending=pendingForScope(item.id,date).length>0;
  const detail=status==="error"?S.attendanceSaveErrors.get(attendanceScopeKey(item.id,date))||"":"";
- const label=status==="error"?"No se pudo guardar.":status==="saving"?"Guardando esta lista…":pending?"Guardando automáticamente…":"Los cambios de esta hora se guardan automáticamente.";
+ const label=status==="error"?"Error al guardar; se reintentará automáticamente.":status==="saving"?"Guardando esta lista…":pending?"Guardando automáticamente…":"Los cambios de esta hora se guardan automáticamente.";
  const button=status==="error"?"Reintentar guardado":"Guardar ahora";
  return '<div class="hour-save '+(pending?"dirty":"clean")+'" role="status">'+attendanceSaveIndicator(item.id,date)+'<span class="mut">'+label+(detail?'<br><small>'+esc(detail)+'</small>':"")+'</span><button class="act alt" data-a="save-pending"'+(!S.pendingAttendance.size||S.savingAttendanceScopes.size?' disabled':'')+'>'+button+'</button></div>';
 }
@@ -471,7 +557,7 @@ function render(){
   content='<div class="subject-stat">'+sidebar+'<div>'+stats+'</div></div>';
  }
  const pendingBanner=S.pendingAttendance.size
-  ?'<div class="class-card" role="status"><span>'+S.pendingAttendance.size+' cambios de asistencia pendientes; no cierres ni refresques esta pestaña hasta que aparezca “Guardado”.</span> <button class="act alt" data-a="save-pending"'+(S.savingAttendanceScopes.size?' disabled':'')+'>Guardar pendientes ahora</button></div>'
+  ?'<div class="class-card" role="status"><span>'+S.pendingAttendance.size+' cambios de asistencia pendientes. Se reintentará automáticamente y la lista se recuperará al volver a abrir esta página en este navegador.</span> <button class="act alt" data-a="save-pending"'+(S.savingAttendanceScopes.size?' disabled':'')+'>Guardar pendientes ahora</button></div>'
   :"";
  A.innerHTML=(S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':"")+(S.notice?'<div class="class-card" role="status">'+esc(S.notice)+'</div>':"")+pendingBanner+nav+content+(S.modal?teacherModal():"")+(S.scheduleModal?scheduleModal():"")+(S.edit?editModal():"")+(S.cards?cardsModal():"");
  if(S.edit)drawQR();if(S.cards)drawCards();
@@ -784,7 +870,9 @@ function saveClassEditor(){
  S.editingClass=null;S.activeClass=null;S.err="";S.notice="";
  render();
 }
-window.addEventListener("beforeunload",e=>{if(S.pendingAttendance.size){e.preventDefault();e.returnValue=""}});
+window.addEventListener("beforeunload",e=>{if(S.pendingAttendance.size){persistPendingAttendance();e.preventDefault();e.returnValue=""}});
+window.addEventListener("online",retryPendingAttendanceNow);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")retryPendingAttendanceNow()});
 document.addEventListener("click",async e=>{
  const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,v=b.dataset.v;
  if(a==="save-pending"&&S.savingAttendanceScopes.size)return;
